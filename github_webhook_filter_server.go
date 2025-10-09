@@ -44,6 +44,10 @@ func init() {
 
 func main() {
 	mux := http.NewServeMux()
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
 	mux.HandleFunc("/", handler)
 	log.Printf("Starting github webhooks filter server, listening on 8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))
@@ -51,6 +55,7 @@ func main() {
 
 func handler(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Printf("********************")
+	log.Printf("Received %s request from %s", request.Method, request.RemoteAddr)
 	if err := logRequest(request.Header); err != "" {
 		respondError(responseWriter, string(err), http.StatusBadRequest)
 		return
