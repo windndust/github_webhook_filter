@@ -100,7 +100,9 @@ func handleRequest(responseWriter http.ResponseWriter, request *http.Request) {
 
 	if ptype := event.Package.PackageType; ptype != "CONTAINER" {
 		logLine := fmt.Sprintf("Filtered out package_type %s! No forward to relay", ptype)
-		respondError(responseWriter, logLine, http.StatusBadRequest)
+		log.Printf("%s", logLine)
+		responseWriter.Header().Add("Message", logLine)
+		responseWriter.WriteHeader(http.StatusNoContent)
 		return
 	}
 
