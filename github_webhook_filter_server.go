@@ -106,7 +106,7 @@ func handleRequest(responseWriter http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	log.Printf("Request passed filter! Sending to relay")
+	log.Printf("package_type CONTAINER passed filter! Sending to relay")
 
 	req, _ := http.NewRequestWithContext(request.Context(), "POST", relayURL, strings.NewReader(string(requestBody)))
 	req.Header.Set("User-Agent", "Go WebHook Filter")
@@ -124,6 +124,7 @@ func handleRequest(responseWriter http.ResponseWriter, request *http.Request) {
 	if statusCode := httpResponse.StatusCode; statusCode < 200 || statusCode >= 300 {
 		http.Error(responseWriter, fmt.Sprintf("Error - Relay returned status: %d", statusCode), http.StatusBadGateway)
 	}
+	responseWriter.Write([]byte("package_type:CONTAINER passed the filter on Github Webhook Filter server hosted at onrender.com. Forwarded to relay."))
 	responseWriter.WriteHeader(http.StatusOK)
 }
 
