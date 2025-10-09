@@ -56,13 +56,30 @@ func main() {
 func handler(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Printf("********************")
 	log.Printf("Received %s request from %s", request.Method, request.RemoteAddr)
+
+	defer func() {
+		log.Printf("Finished processing request")
+		log.Printf("********************")
+	}()
+
+	if request.Method == "HEAD" || request.Method == "GET" {
+		handleHeadAndGet(responseWriter, request)
+		return
+	}
 	if err := logRequest(request.Header); err != "" {
 		respondError(responseWriter, string(err), http.StatusBadRequest)
 		return
 	}
 	handleRequest(responseWriter, request)
-	log.Printf("Finished processing request")
-	log.Printf("********************")
+}
+
+func handleHeadAndGet(responseWriter http.ResponseWriter, request *http.Request) {
+	for name, values := range request.Header {
+		for _, value := range values {
+			log.Printf("Header: %s = %s", name, value)
+		}
+	}
+	responseWriter.WriteHeader(http.StatusOK)
 }
 
 func handleRequest(responseWriter http.ResponseWriter, request *http.Request) {
