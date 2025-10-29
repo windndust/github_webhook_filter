@@ -125,6 +125,11 @@ func handleRequest(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Printf("package_type CONTAINER passed filter! Sending to relay")
 
 	newRequest, _ := http.NewRequestWithContext(request.Context(), "POST", relayURL, strings.NewReader(string(requestBody)))
+	for key, valuesArray := range request.Header {
+		for _, value := range valuesArray {
+			newRequest.Header.Set(key, value)
+		}
+	}
 	newRequest.Header.Set("User-Agent", "Go WebHook Filter")
 	newRequest.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
