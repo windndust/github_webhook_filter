@@ -74,12 +74,28 @@ func handler(responseWriter http.ResponseWriter, request *http.Request) {
 }
 
 func handleHeadAndGet(responseWriter http.ResponseWriter, request *http.Request) {
-	for name, values := range request.Header {
-		for _, value := range values {
-			log.Printf("Header: %s = %s", name, value)
+	for key, valuesArray := range request.Header {
+		for _, value := range valuesArray {
+			log.Printf("Header: %s = %s", key, value)
 		}
 	}
 	responseWriter.WriteHeader(http.StatusOK)
+}
+
+func logRequest(headers http.Header) string {
+	requestId := headers.Get("X-GitHub-Delivery")
+	eventType := headers.Get("X-GitHub-Event")
+	if requestId == "" || eventType == "" {
+		errorLine := fmt.Sprintf("Either missing requestId: (%s) or eventType: (%s) and will not process request further", requestId, eventType)
+		return errorLine
+	}
+	log.Printf("Processing request with id: (%s) and event type: (%s)\n", requestId, eventType)
+	return ""
+}
+
+func respondError(responseWriter http.ResponseWriter, msg string, code int) {
+	log.Printf("%s", msg)
+	http.Error(responseWriter, msg, code)
 }
 
 func handleRequest(responseWriter http.ResponseWriter, request *http.Request) {
@@ -98,8 +114,8 @@ func handleRequest(responseWriter http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	if ptype := event.Package.PackageType; ptype != "CONTAINER" {
-		logLine := fmt.Sprintf("Filtered out package_type %s! No forward to relay", ptype)
+	if packageType := event.Package.PackageType; packageType != "CONTAINER" {
+		logLine := fmt.Sprintf("Filtered out package_type %s! No forward to relay", packageType)
 		log.Printf("%s", logLine)
 		responseWriter.Header().Add("Message", logLine)
 		responseWriter.WriteHeader(http.StatusNoContent)
@@ -108,11 +124,11 @@ func handleRequest(responseWriter http.ResponseWriter, request *http.Request) {
 
 	log.Printf("package_type CONTAINER passed filter! Sending to relay")
 
-	req, _ := http.NewRequestWithContext(request.Context(), "POST", relayURL, strings.NewReader(string(requestBody)))
-	req.Header.Set("User-Agent", "Go WebHook Filter")
-	req.Header.Set("Content-Type", "application/json")
+	newRequest, _ := http.NewRequestWithContext(request.Context(), "POST", relayURL, strings.NewReader(string(requestBody)))
+	newRequest.Header.Set("User-Agent", "Go WebHook Filter")
+	newRequest.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
-	httpResponse, err := client.Do(req)
+	httpResponse, err := client.Do(newRequest)
 	if err != nil {
 		logLine := fmt.Sprintf("Error sending request: %v\n", err)
 		respondError(responseWriter, logLine, http.StatusBadGateway)
@@ -128,17 +144,6 @@ func handleRequest(responseWriter http.ResponseWriter, request *http.Request) {
 	responseWriter.WriteHeader(http.StatusOK)
 }
 
-func logRequest(headers http.Header) string {
-	requestId := headers.Get("X-GitHub-Delivery")
-	eventType := headers.Get("X-GitHub-Event")
-	if requestId == "" || eventType == "" {
-		errorLine := fmt.Sprintf("Either missing requestId: (%s) or eventType: (%s) and will not process request further", requestId, eventType)
-		return errorLine
-	}
-	log.Printf("Processing request with id: (%s) and event type: (%s)\n", requestId, eventType)
-	return ""
-}
-
 func readRequest(reader io.ReadCloser) []byte {
 	requestBody, error := io.ReadAll(reader)
 	if error != nil {
@@ -152,9 +157,4 @@ func verifySignature(headerSignature string, requestBodyToHash []byte) bool {
 	mac.Write(requestBodyToHash)
 	calculated := "sha256=" + hex.EncodeToString(mac.Sum(nil))
 	return hmac.Equal([]byte(calculated), []byte(headerSignature))
-}
-
-func respondError(responseWriter http.ResponseWriter, msg string, code int) {
-	log.Printf("%s", msg)
-	http.Error(responseWriter, msg, code)
 }
