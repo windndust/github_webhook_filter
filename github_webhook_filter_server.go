@@ -74,9 +74,9 @@ func handler(responseWriter http.ResponseWriter, request *http.Request) {
 }
 
 func handleHeadAndGet(responseWriter http.ResponseWriter, request *http.Request) {
-	for name, values := range request.Header {
-		for _, value := range values {
-			log.Printf("Header: %s = %s", name, value)
+	for key, valuesArray := range request.Header {
+		for _, value := range valuesArray {
+			log.Printf("Header: %s = %s", key, value)
 		}
 	}
 	responseWriter.WriteHeader(http.StatusOK)
@@ -98,8 +98,8 @@ func handleRequest(responseWriter http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	if ptype := event.Package.PackageType; ptype != "CONTAINER" {
-		logLine := fmt.Sprintf("Filtered out package_type %s! No forward to relay", ptype)
+	if packageType := event.Package.PackageType; packageType != "CONTAINER" {
+		logLine := fmt.Sprintf("Filtered out package_type %s! No forward to relay", packageType)
 		log.Printf("%s", logLine)
 		responseWriter.Header().Add("Message", logLine)
 		responseWriter.WriteHeader(http.StatusNoContent)
@@ -108,11 +108,11 @@ func handleRequest(responseWriter http.ResponseWriter, request *http.Request) {
 
 	log.Printf("package_type CONTAINER passed filter! Sending to relay")
 
-	req, _ := http.NewRequestWithContext(request.Context(), "POST", relayURL, strings.NewReader(string(requestBody)))
-	req.Header.Set("User-Agent", "Go WebHook Filter")
-	req.Header.Set("Content-Type", "application/json")
+	newRequest, _ := http.NewRequestWithContext(request.Context(), "POST", relayURL, strings.NewReader(string(requestBody)))
+	newRequest.Header.Set("User-Agent", "Go WebHook Filter")
+	newRequest.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
-	httpResponse, err := client.Do(req)
+	httpResponse, err := client.Do(newRequest)
 	if err != nil {
 		logLine := fmt.Sprintf("Error sending request: %v\n", err)
 		respondError(responseWriter, logLine, http.StatusBadGateway)
