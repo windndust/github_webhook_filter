@@ -82,6 +82,22 @@ func handleHeadAndGet(responseWriter http.ResponseWriter, request *http.Request)
 	responseWriter.WriteHeader(http.StatusOK)
 }
 
+func logRequest(headers http.Header) string {
+	requestId := headers.Get("X-GitHub-Delivery")
+	eventType := headers.Get("X-GitHub-Event")
+	if requestId == "" || eventType == "" {
+		errorLine := fmt.Sprintf("Either missing requestId: (%s) or eventType: (%s) and will not process request further", requestId, eventType)
+		return errorLine
+	}
+	log.Printf("Processing request with id: (%s) and event type: (%s)\n", requestId, eventType)
+	return ""
+}
+
+func respondError(responseWriter http.ResponseWriter, msg string, code int) {
+	log.Printf("%s", msg)
+	http.Error(responseWriter, msg, code)
+}
+
 func handleRequest(responseWriter http.ResponseWriter, request *http.Request) {
 	requestBody := readRequest(request.Body)
 	headerSignature := request.Header.Get("X-Hub-Signature-256")
@@ -128,17 +144,6 @@ func handleRequest(responseWriter http.ResponseWriter, request *http.Request) {
 	responseWriter.WriteHeader(http.StatusOK)
 }
 
-func logRequest(headers http.Header) string {
-	requestId := headers.Get("X-GitHub-Delivery")
-	eventType := headers.Get("X-GitHub-Event")
-	if requestId == "" || eventType == "" {
-		errorLine := fmt.Sprintf("Either missing requestId: (%s) or eventType: (%s) and will not process request further", requestId, eventType)
-		return errorLine
-	}
-	log.Printf("Processing request with id: (%s) and event type: (%s)\n", requestId, eventType)
-	return ""
-}
-
 func readRequest(reader io.ReadCloser) []byte {
 	requestBody, error := io.ReadAll(reader)
 	if error != nil {
@@ -152,9 +157,4 @@ func verifySignature(headerSignature string, requestBodyToHash []byte) bool {
 	mac.Write(requestBodyToHash)
 	calculated := "sha256=" + hex.EncodeToString(mac.Sum(nil))
 	return hmac.Equal([]byte(calculated), []byte(headerSignature))
-}
-
-func respondError(responseWriter http.ResponseWriter, msg string, code int) {
-	log.Printf("%s", msg)
-	http.Error(responseWriter, msg, code)
 }
