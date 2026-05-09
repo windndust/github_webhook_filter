@@ -137,6 +137,7 @@ func handleRequest(responseWriter http.ResponseWriter, request *http.Request) {
 	if err != nil {
 		logLine := fmt.Sprintf("Error sending request: %v\n", err)
 		respondError(responseWriter, logLine, http.StatusBadGateway)
+		return
 	}
 	defer httpResponse.Body.Close()
 
