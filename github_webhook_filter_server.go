@@ -44,14 +44,26 @@ func init() {
 
 func main() {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Local health checked")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
-	mux.HandleFunc("/", handler)
+
+	mux.HandleFunc("GET /", handleHeadAndGet)
+	mux.HandleFunc("POST /", handler)
 	log.Printf("Starting github webhooks filter server, listening on 8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))
+}
+
+func handleHeadAndGet(responseWriter http.ResponseWriter, request *http.Request) {
+	log.Printf("Handling ghost HEAD or GET to /")
+	for key, valuesArray := range request.Header {
+		for _, value := range valuesArray {
+			log.Printf("Header: %s = %s", key, value)
+		}
+	}
+	responseWriter.WriteHeader(http.StatusOK)
 }
 
 func handler(responseWriter http.ResponseWriter, request *http.Request) {
@@ -63,27 +75,14 @@ func handler(responseWriter http.ResponseWriter, request *http.Request) {
 		log.Printf("********************")
 	}()
 
-	if request.Method == "HEAD" || request.Method == "GET" {
-		handleHeadAndGet(responseWriter, request)
-		return
-	}
-	if err := logRequest(request.Header); err != "" {
+	if err := validateAndLogRequest(request.Header); err != "" {
 		respondError(responseWriter, string(err), http.StatusBadRequest)
 		return
 	}
 	handleRequest(responseWriter, request)
 }
 
-func handleHeadAndGet(responseWriter http.ResponseWriter, request *http.Request) {
-	for key, valuesArray := range request.Header {
-		for _, value := range valuesArray {
-			log.Printf("Header: %s = %s", key, value)
-		}
-	}
-	responseWriter.WriteHeader(http.StatusOK)
-}
-
-func logRequest(headers http.Header) string {
+func validateAndLogRequest(headers http.Header) string {
 	requestId := headers.Get("X-GitHub-Delivery")
 	eventType := headers.Get("X-GitHub-Event")
 	if requestId == "" || eventType == "" {
