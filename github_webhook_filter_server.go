@@ -69,6 +69,7 @@ func configSetup() {
 	log.Printf("Github Webhook shared secret loaded")
 
 	relayURL = getEnvVar("WEBHOOKRELAY_URL", true, "")
+	relayURL = addSlashToURLEndIfMissing()
 	log.Printf("Webhook Relay URL: %s", relayURL)
 
 	httpClientTimeout := getEnvVar("HTTP_CLIENT_TIMEOUT", false, "15")
@@ -100,6 +101,15 @@ func getEnvVar(varName string, required bool, defaultVal string) string {
 	return v
 }
 
+func addSlashToURLEndIfMissing() string {
+	length := len(relayURL)
+	index := strings.LastIndex(relayURL, "/")
+	if length-1 != index {
+		return relayURL + "/"
+	}
+	return relayURL
+}
+
 func handleGetHealth(responseWriter http.ResponseWriter, request *http.Request) {
 	if printLog := request.Header.Get("log"); printLog != "" && strings.EqualFold(printLog, "true") {
 		log.Printf("***** Local health checked *****")
@@ -112,8 +122,8 @@ func handleGetHealth(responseWriter http.ResponseWriter, request *http.Request) 
 func handleGetGatewayHealth(responseWriter http.ResponseWriter, request *http.Request) {
 	log.Printf("***** Checking Gateway Health *****")
 	log.Printf("***** Host: %s *****", request.Host)
-	var healthURL = relayURL + "/health"
 
+	var healthURL = relayURL + "health"
 	newRequest, err := http.NewRequestWithContext(request.Context(), "GET", healthURL, nil)
 	if err != nil {
 		respondError(responseWriter, fmt.Errorf("%w", err), http.StatusInternalServerError)
@@ -266,7 +276,8 @@ func handleGithubWebhook(responseWriter http.ResponseWriter, request *http.Reque
 	log.Printf("package_type CONTAINER passed filter! Sending to relay")
 
 	//make http request to relay
-	newRequest, err := http.NewRequestWithContext(request.Context(), "POST", relayURL, bytes.NewBuffer(requestBody))
+	var deployURL = relayURL + "deploy"
+	newRequest, err := http.NewRequestWithContext(request.Context(), "POST", deployURL, bytes.NewBuffer(requestBody))
 	if err != nil {
 		respondError(responseWriter, err, http.StatusInternalServerError)
 		return
