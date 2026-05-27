@@ -296,13 +296,14 @@ func handleGithubWebhook(responseWriter http.ResponseWriter, request *http.Reque
 		return
 	}
 	defer httpResponse.Body.Close()
-	log.Printf("Downstream relay responded with code: %d", httpResponse.StatusCode)
+	log.Printf("Upstream relay responded with code: %d", httpResponse.StatusCode)
 
 	//prepare response
 	if statusCode := httpResponse.StatusCode; statusCode < 200 || statusCode >= 300 {
 		respondError(responseWriter, fmt.Errorf("Error - Relay returned status: %d", statusCode), http.StatusBadGateway)
 		return
 	}
+	log.Print("Responding with success 200")
 	responseWriter.WriteHeader(http.StatusOK)
 	responseWriter.Write([]byte("package_type:CONTAINER passed the filter on Github Webhook Filter server hosted at onrender.com. Forwarded to relay."))
 }
