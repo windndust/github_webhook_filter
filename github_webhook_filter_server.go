@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -277,7 +278,10 @@ func handleGithubWebhook(responseWriter http.ResponseWriter, request *http.Reque
 
 	//make http request to relay
 	var deployURL = relayURL + "deploy"
-	newRequest, err := http.NewRequestWithContext(request.Context(), "POST", deployURL, bytes.NewBuffer(requestBody))
+
+	relayContext, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	newRequest, err := http.NewRequestWithContext(relayContext, "POST", deployURL, bytes.NewBuffer(requestBody))
 	if err != nil {
 		respondError(responseWriter, err, http.StatusInternalServerError)
 		return
