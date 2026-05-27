@@ -276,17 +276,25 @@ func handleGithubWebhook(responseWriter http.ResponseWriter, request *http.Reque
 	}
 	log.Printf("package_type CONTAINER passed filter! Sending to relay")
 
-	//make http request to relay
-	var deployURL = relayURL + "deploy"
+	responseWriter.WriteHeader(http.StatusAccepted)
+	responseWriter.Write([]byte("package_type:CONTAINER passed the filter on Github Webhook Filter server hosted at onrender.com. Forwarded to relay."))
+
+	asyncRelayCall(requestBody, request.Header)
+}
+
+func asyncRelayCall(requestBody []byte, headers http.Header) {
+	log.Printf("Starting async call to relay")
 
 	relayContext, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	newRequest, err := http.NewRequestWithContext(relayContext, "POST", deployURL, bytes.NewBuffer(requestBody))
+
+	newRequest, err := http.NewRequestWithContext(relayContext, "POST", relayURL+"deploy", bytes.NewBuffer(requestBody))
 	if err != nil {
-		respondError(responseWriter, err, http.StatusInternalServerError)
+		log.Printf("Creating new http request failed: %v", err)
 		return
 	}
-	for key, valuesArray := range request.Header {
+
+	for key, valuesArray := range headers {
 		for _, value := range valuesArray {
 			newRequest.Header.Set(key, value)
 		}
@@ -296,18 +304,15 @@ func handleGithubWebhook(responseWriter http.ResponseWriter, request *http.Reque
 
 	httpResponse, err := client.Do(newRequest)
 	if err != nil {
-		respondError(responseWriter, fmt.Errorf("Error sending request: %w", err), http.StatusBadGateway)
+		log.Printf("Error sending request: %v", err)
 		return
 	}
 	defer httpResponse.Body.Close()
-	log.Printf("Upstream relay responded with code: %d", httpResponse.StatusCode)
 
-	//prepare response
-	if statusCode := httpResponse.StatusCode; statusCode < 200 || statusCode >= 300 {
-		respondError(responseWriter, fmt.Errorf("Error - Relay returned status: %d", statusCode), http.StatusBadGateway)
-		return
+	log.Printf("Upstream relay responded with code: %d", httpResponse.StatusCode)
+	body, err := io.ReadAll(httpResponse.Body)
+	if err != nil {
+		log.Fatal(err)
 	}
-	log.Print("Responding with success 200")
-	responseWriter.WriteHeader(http.StatusOK)
-	responseWriter.Write([]byte("package_type:CONTAINER passed the filter on Github Webhook Filter server hosted at onrender.com. Forwarded to relay."))
+	log.Printf("Http Response Body: %s", string(body))
 }
