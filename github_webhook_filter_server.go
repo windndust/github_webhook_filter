@@ -279,7 +279,7 @@ func handleGithubWebhook(responseWriter http.ResponseWriter, request *http.Reque
 	responseWriter.WriteHeader(http.StatusAccepted)
 	responseWriter.Write([]byte("package_type:CONTAINER passed the filter on Github Webhook Filter server hosted at onrender.com. Forwarded to relay."))
 
-	asyncRelayCall(requestBody, request.Header)
+	go asyncRelayCall(requestBody, request.Header)
 }
 
 func asyncRelayCall(requestBody []byte, headers http.Header) {
