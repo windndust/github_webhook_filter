@@ -1,0 +1,36 @@
+#Based off official Dockerfile example from https://hub.docker.com/_/golang/
+#Uses stage 1 to get initial build of go app, Stage 2 to output a smaller size docker image
+
+
+#
+# Stage 1 
+#
+
+#Specifies the base image to use (and pulldown if not already cached)
+FROM golang:1.26 AS builder
+
+#conventional location for source code in Linux File System Hierarchy Standard (FHS)
+WORKDIR /usr/src/app
+
+# pre-copy/cache go.mod for pre-downloading dependencies and only redownloading them in subsequent builds if they change
+COPY go.mod go.sum ./
+RUN go mod download
+
+#standard copy-all command for dockerfile, .dockerignore is used to exclude specifiesd files from the copy
+#since no directory app exists by default in /usr/local/bin, the build output is named app
+COPY . .
+RUN go build -v -o /usr/local/bin/app ./...
+
+
+#
+# Stage 2
+#
+
+#Specifies a base no-extra alpine image
+FROM alpine:latest
+
+#Copies from stage 1 the build output
+COPY --from=builder /usr/local/bin/app /usr/local/bin/app
+
+#runtime command to start the app
+CMD ["app"]
